@@ -9,6 +9,12 @@ import at.ac.fhcampuswien.fhmdb.database.WatchlistRepository;
 import at.ac.fhcampuswien.fhmdb.models.Genre;
 import at.ac.fhcampuswien.fhmdb.models.Movie;
 import at.ac.fhcampuswien.fhmdb.models.SortedState;
+import at.ac.fhcampuswien.fhmdb.observer.ObservableMessages;
+import at.ac.fhcampuswien.fhmdb.observer.Observer;
+import at.ac.fhcampuswien.fhmdb.statePattern.AscendingState;
+import at.ac.fhcampuswien.fhmdb.statePattern.DescendingState;
+import at.ac.fhcampuswien.fhmdb.statePattern.MovieSorter;
+import at.ac.fhcampuswien.fhmdb.statePattern.UnsortedState;
 import at.ac.fhcampuswien.fhmdb.ui.MovieCell;
 import at.ac.fhcampuswien.fhmdb.ui.UserDialog;
 import com.jfoenix.controls.JFXButton;
@@ -19,15 +25,16 @@ import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.TextField;
 
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.ResourceBundle;
 
-public class MovieListController implements Initializable {
+public class MovieListController implements Initializable, Observer {
     @FXML
     public JFXButton searchBtn;
 
@@ -50,6 +57,7 @@ public class MovieListController implements Initializable {
     public JFXButton sortBtn;
 
     public List<Movie> allMovies;
+    private MovieSorter movieSorter = new MovieSorter();
 
     protected ObservableList<Movie> observableMovies = FXCollections.observableArrayList();
 
@@ -67,7 +75,7 @@ public class MovieListController implements Initializable {
                     movie.getLengthInMinutes(),
                     movie.getRating());
             try {
-                WatchlistRepository repository = new WatchlistRepository();
+                WatchlistRepository repository =  WatchlistRepository.getInstance();
                 repository.addToWatchlist(watchlistMovieEntity);
             } catch (DataBaseException e) {
                 UserDialog dialog = new UserDialog("Database Error", "Could not add movie to watchlist");
@@ -77,10 +85,17 @@ public class MovieListController implements Initializable {
         }
     };
 
+
+    // register add observer
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         initializeState();
         initializeLayout();
+        try {
+            WatchlistRepository.getInstance().addObserver(this);
+        } catch (DataBaseException e) {
+            e.printStackTrace();
+        }
     }
 
     public void initializeState() {
@@ -128,7 +143,6 @@ public class MovieListController implements Initializable {
         ratingFromComboBox.setPromptText("Filter by Rating");
     }
 
-
     public void setMovies(List<Movie> movies) {
         allMovies = movies;
     }
@@ -137,25 +151,21 @@ public class MovieListController implements Initializable {
         observableMovies.clear();
         observableMovies.addAll(movies);
     }
+
+    // State Pattern
     public void sortMovies(){
-        if (sortedState == SortedState.NONE || sortedState == SortedState.DESCENDING) {
-            sortMovies(SortedState.ASCENDING);
-        } else if (sortedState == SortedState.ASCENDING) {
-            sortMovies(SortedState.DESCENDING);
+        if(movieSorter.getState() instanceof UnsortedState || movieSorter.getState() instanceof DescendingState) {
+            movieSorter.setState(new AscendingState());
+            movieSorter.sortMovies(observableMovies);
+        }
+        else if (movieSorter.getState() instanceof AscendingState) {
+            movieSorter.setState(new DescendingState());
+            movieSorter.sortMovies(observableMovies);
         }
     }
     // sort movies based on sortedState
     // by default sorted state is NONE
     // afterwards it switches between ascending and descending
-    public void sortMovies(SortedState sortDirection) {
-        if (sortDirection == SortedState.ASCENDING) {
-            observableMovies.sort(Comparator.comparing(Movie::getTitle));
-            sortedState = SortedState.ASCENDING;
-        } else {
-            observableMovies.sort(Comparator.comparing(Movie::getTitle).reversed());
-            sortedState = SortedState.DESCENDING;
-        }
-    }
 
     public List<Movie> filterByQuery(List<Movie> movies, String query){
         if(query == null || query.isEmpty()) return movies;
@@ -210,10 +220,9 @@ public class MovieListController implements Initializable {
 
         setMovies(movies);
         setMovieList(movies);
-        // applyAllFilters(searchQuery, genre);
 
         if(sortedState != SortedState.NONE) {
-            sortMovies(sortedState);
+            sortMovies();
         }
     }
 
@@ -225,9 +234,9 @@ public class MovieListController implements Initializable {
     }
 
     public List<Movie> getMovies(String searchQuery, Genre genre, String releaseYear, String ratingFrom) {
-        try{
+        try {
             return MovieAPI.getAllMovies(searchQuery, genre, releaseYear, ratingFrom);
-        }catch (MovieApiException e){
+        } catch (MovieApiException e){
             System.out.println(e.getMessage());
             UserDialog dialog = new UserDialog("MovieApi Error", "Could not load movies from api.");
             dialog.show();
@@ -237,5 +246,14 @@ public class MovieListController implements Initializable {
 
     public void sortBtnClicked(ActionEvent actionEvent) {
         sortMovies();
+    }
+
+    @Override
+    public void update(ObservableMessages messages) {
+        if(messages == ObservableMessages.ADDED){
+            new Alert(Alert.AlertType.INFORMATION, "Movie was successfully added to the Watchlist", ButtonType.OK).show();
+        } else {
+            new Alert(Alert.AlertType.WARNING, "Movie is already in Watchlist!", ButtonType.OK).show();
+        }
     }
 }

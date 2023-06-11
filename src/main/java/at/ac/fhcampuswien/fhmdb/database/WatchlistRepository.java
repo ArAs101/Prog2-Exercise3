@@ -1,19 +1,31 @@
 package at.ac.fhcampuswien.fhmdb.database;
 
+import at.ac.fhcampuswien.fhmdb.observer.Observable;
+import at.ac.fhcampuswien.fhmdb.observer.ObservableMessages;
+import at.ac.fhcampuswien.fhmdb.observer.Observer;
 import com.j256.ormlite.dao.Dao;
 
 import java.util.List;
 
-public class WatchlistRepository {
+public class WatchlistRepository implements Observable {
+    private static WatchlistRepository instance;
 
     Dao<WatchlistMovieEntity, Long> dao;
 
-    public WatchlistRepository() throws DataBaseException {
+    private WatchlistRepository() throws DataBaseException {
         try {
             this.dao = DatabaseManager.getInstance().getWatchlistDao();
         } catch (Exception e) {
             throw new DataBaseException(e.getMessage());
         }
+    }
+
+    // Singleton Pattern
+    public static WatchlistRepository getInstance() throws DataBaseException {
+        if(instance == null) {
+            instance = new WatchlistRepository();
+        }
+        return instance;
     }
 
     public List<WatchlistMovieEntity> readWatchlist() throws DataBaseException {
@@ -26,10 +38,13 @@ public class WatchlistRepository {
     }
     public void addToWatchlist(WatchlistMovieEntity movie) throws DataBaseException {
         try {
-            // only add movie if it does not exist yet
+            // only add movie if it doesn't exist yet
             long count = dao.queryBuilder().where().eq("apiId", movie.getApiId()).countOf();
             if (count == 0) {
                 dao.create(movie);
+                updateObserver(ObservableMessages.ADDED);
+            } else {
+                updateObserver(ObservableMessages.ALREADY_EXISTS);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -50,6 +65,18 @@ public class WatchlistRepository {
             return dao.queryForMatching(movie).size() > 0;
         } catch (Exception e) {
             throw new DataBaseException("Error while checking if movie is on watchlist");
+        }
+    }
+
+    @Override
+    public void addObserver(Observer observer) {
+        this.observers.add(observer);
+    }
+
+    @Override
+    public void updateObserver(ObservableMessages message) {
+        for(Observer observer : this.observers){
+            observer.update(message);
         }
     }
 }

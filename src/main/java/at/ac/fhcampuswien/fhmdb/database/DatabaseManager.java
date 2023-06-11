@@ -5,10 +5,11 @@ import com.j256.ormlite.dao.DaoManager;
 import com.j256.ormlite.jdbc.JdbcConnectionSource;
 import com.j256.ormlite.support.ConnectionSource;
 import com.j256.ormlite.table.TableUtils;
+
 import java.sql.SQLException;
 
 public class DatabaseManager {
-    private static final String DB_URL = "jdbc:h2:file:./db/fhmdb"; // in memory: jdbc:h2:mem:fhmdb
+    private static final String DB_URL = "jdbc:h2:file:./db/fhmdb";
     public static final String user = "admin";
     public static final String pass = "pass";
 
@@ -27,7 +28,7 @@ public class DatabaseManager {
         }
     }
 
-    // get singleton database instance
+    // Singleton database instance:
     public static DatabaseManager getInstance() throws DataBaseException {
         if (instance == null) {
             instance = new DatabaseManager();
@@ -48,10 +49,8 @@ public class DatabaseManager {
         } catch (SQLException e) {
             throw new DataBaseException(e.getMessage());
         }
-
     }
 
-    // close the db connection
     public static void closeConnectionSource() throws DataBaseException {
         if(connectionSource != null){
             try {
@@ -63,12 +62,10 @@ public class DatabaseManager {
         }
     }
 
-    // creates the tables in the database
     private static void createTables() throws SQLException {
         TableUtils.createTableIfNotExists(connectionSource, WatchlistMovieEntity.class);
     }
 
-    // removes tables from database
     private static void dropTables() throws SQLException {
         TableUtils.dropTable(connectionSource, WatchlistMovieEntity.class, true);
     }

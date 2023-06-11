@@ -31,7 +31,7 @@ public class WatchlistController implements Initializable {
             WatchlistMovieEntity watchlistMovieEntity = (WatchlistMovieEntity) o;
 
             try {
-                WatchlistRepository watchlistRepository = new WatchlistRepository();
+                WatchlistRepository watchlistRepository =  WatchlistRepository.getInstance();
                 watchlistRepository.removeFromWatchlist(watchlistMovieEntity);
                 observableWatchlist.remove(watchlistMovieEntity);
             } catch (DataBaseException e) {
@@ -44,10 +44,9 @@ public class WatchlistController implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-
         List<WatchlistMovieEntity> watchlist = new ArrayList<>();
         try {
-            watchlistRepository = new WatchlistRepository();
+            watchlistRepository =  WatchlistRepository.getInstance();
             watchlist = getWatchlist();
             observableWatchlist.addAll(getWatchlist());
             watchlistView.setItems(observableWatchlist);
@@ -62,9 +61,6 @@ public class WatchlistController implements Initializable {
         if(watchlist.size() == 0) {
             watchlistView.setPlaceholder(new javafx.scene.control.Label("Watchlist is empty"));
         }
-
-
-        System.out.println("WatchlistController initialized");
     }
 
     private List<WatchlistMovieEntity> getWatchlist() throws DataBaseException {
